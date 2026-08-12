@@ -124,7 +124,7 @@ with st.sidebar:
     mostrar_intersecoes = st.checkbox("🔵 Mostrar interseções entre funções", value=True)
 
     st.markdown("---")
-    st.info("💡 **Dica:** Use a escala para "zoom in" em regiões específicas. Adicione até 4 funções para comparar inclinações e interceptos.")
+    st.info('💡 **Dica:** Use a escala para "zoom in" em regiões específicas. Adicione até 4 funções para comparar inclinações e interceptos.')
 
 # ============================================
 # GRÁFICO PRINCIPAL
