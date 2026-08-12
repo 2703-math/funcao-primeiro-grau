@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from fractions import Fraction
 
 # ============================================
 # CONFIGURAÇÃO DA PÁGINA
@@ -47,17 +47,21 @@ st.markdown("""
         text-align: center;
         margin: 0.4rem 0;
     }
-    .info-box {
-        background: #e8f4ff;
-        border-radius: 10px;
-        padding: 0.8rem 1rem;
-        margin: 0.5rem 0;
-        font-size: 0.95rem;
+    .frac {
+        display: inline-block;
+        text-align: center;
+        vertical-align: middle;
+        margin: 0 2px;
     }
-    .highlight-red { color: #e74c3c; font-weight: 700; }
-    .highlight-blue { color: #3498db; font-weight: 700; }
-    .highlight-green { color: #2ecc71; font-weight: 700; }
-    .highlight-orange { color: #f39c12; font-weight: 700; }
+    .frac-top {
+        border-bottom: 2px solid #333;
+        display: block;
+        padding: 0 4px;
+    }
+    .frac-bottom {
+        display: block;
+        padding: 0 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -66,6 +70,34 @@ st.markdown("""
 # ============================================
 CORES_FUNCOES = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"]
 NOMES_CORES = ["Vermelho", "Azul", "Verde", "Laranja"]
+
+# ============================================
+# FUNÇÃO AUXILIAR: FORMATAR NÚMERO COMO FRAÇÃO
+# ============================================
+def formatar_numero(valor):
+    """Retorna string com inteiro ou fração simplificada"""
+    if valor is None:
+        return "—"
+    # Se for muito próximo de inteiro
+    if abs(valor - round(valor)) < 1e-10:
+        return str(int(round(valor)))
+    # Converter para fração
+    frac = Fraction(valor).limit_denominator(100)
+    if frac.denominator == 1:
+        return str(frac.numerator)
+    # Retornar como fração em HTML
+    return f'<span class="frac"><span class="frac-top">{frac.numerator}</span><span class="frac-bottom">{frac.denominator}</span></span>'
+
+def formatar_numero_texto(valor):
+    """Retorna string texto (sem HTML) para hover e tooltips"""
+    if valor is None:
+        return "—"
+    if abs(valor - round(valor)) < 1e-10:
+        return str(int(round(valor)))
+    frac = Fraction(valor).limit_denominator(100)
+    if frac.denominator == 1:
+        return str(frac.numerator)
+    return f"{frac.numerator}/{frac.denominator}"
 
 # ============================================
 # TÍTULO
@@ -80,16 +112,13 @@ with st.sidebar:
     st.header("⚙️ Controles das Funções")
     st.markdown("---")
 
-    # Quantidade de funções
     n_funcoes = st.slider("📊 Quantidade de funções no gráfico", 1, 4, 2)
-
     st.markdown("---")
 
     funcoes = []
     for i in range(n_funcoes):
         cor = CORES_FUNCOES[i]
         nome = NOMES_CORES[i]
-
         st.markdown(f"<div style='font-weight:700;color:{cor};font-size:1.1rem;'>📉 Função {i+1} ({nome})</div>", unsafe_allow_html=True)
 
         col_a, col_b = st.columns(2)
@@ -117,7 +146,6 @@ with st.sidebar:
         y_max = st.number_input("y máximo", -50.0, 50.0, 15.0, 1.0)
 
     st.markdown("---")
-
     mostrar_grade = st.checkbox("📊 Mostrar grade", value=True)
     mostrar_eixos = st.checkbox("➕ Mostrar eixos destacados", value=True)
     mostrar_raizes = st.checkbox("🔴 Mostrar raízes (zeros)", value=True)
@@ -132,9 +160,7 @@ with st.sidebar:
 st.markdown("---")
 st.header("📉 Plano Cartesiano")
 
-# Geração dos pontos
 x = np.linspace(x_min, x_max, 500)
-
 fig = go.Figure()
 
 # Eixos coordenados
@@ -150,8 +176,6 @@ raizes = []
 for i, f in enumerate(funcoes):
     a, b, cor = f["a"], f["b"], f["cor"]
     y = a * x + b
-
-    # Limitar y para não extrapolar muito a escala (clip visual)
     y_clip = np.clip(y, y_min - 5, y_max + 5)
 
     fig.add_trace(go.Scatter(
@@ -162,30 +186,32 @@ for i, f in enumerate(funcoes):
         hovertemplate=f"f<sub>{i+1}</sub>(%{{x:.2f}}) = %{{y:.2f}}<extra></extra>"
     ))
 
-    # Raiz (zero)
+    # Raiz (zero) — x-intercepto
     if a != 0:
         raiz = -b / a
         if x_min <= raiz <= x_max:
             raizes.append({"func": i+1, "raiz": raiz, "cor": cor, "a": a, "b": b})
+            raiz_frac = formatar_numero_texto(raiz)
             if mostrar_raizes:
                 fig.add_trace(go.Scatter(
                     x=[raiz], y=[0],
                     mode='markers+text',
-                    marker=dict(size=14, color=cor, symbol='diamond', line=dict(width=2, color='white')),
-                    text=[f'x<sub>{i+1}</sub>'],
+                    marker=dict(size=16, color=cor, symbol='diamond', line=dict(width=2, color='white')),
+                    text=[f'x₀'],
                     textposition='bottom center',
                     textfont=dict(size=11, color=cor, family='Arial Black'),
-                    hovertemplate=f"Raiz f<sub>{i+1}</sub>: x = {raiz:.3f}<extra></extra>",
+                    hovertemplate=f"Raiz f<sub>{i+1}</sub>: x = {raiz_frac}<extra></extra>",
                     showlegend=False
                 ))
 
     # Intercepto y
     if y_min <= b <= y_max:
+        b_frac = formatar_numero_texto(b)
         fig.add_trace(go.Scatter(
             x=[0], y=[b],
             mode='markers',
-            marker=dict(size=10, color=cor, symbol='circle', line=dict(width=2, color='white')),
-            hovertemplate=f"Intercepto f<sub>{i+1}</sub>: (0, {b:.2f})<extra></extra>",
+            marker=dict(size=12, color=cor, symbol='circle', line=dict(width=2, color='white')),
+            hovertemplate=f"Intercepto f<sub>{i+1}</sub>: (0, {b_frac})<extra></extra>",
             showlegend=False
         ))
 
@@ -197,7 +223,7 @@ if mostrar_intersecoes and len(funcoes) >= 2:
             a1, b1 = funcoes[i]["a"], funcoes[i]["b"]
             a2, b2 = funcoes[j]["a"], funcoes[j]["b"]
 
-            if a1 != a2:  # Retas não paralelas
+            if a1 != a2:
                 x_int = (b2 - b1) / (a1 - a2)
                 y_int = a1 * x_int + b1
 
@@ -207,16 +233,18 @@ if mostrar_intersecoes and len(funcoes) >= 2:
                         "x": x_int, "y": y_int,
                         "cor1": funcoes[i]["cor"], "cor2": funcoes[j]["cor"]
                     })
+                    x_int_frac = formatar_numero_texto(x_int)
+                    y_int_frac = formatar_numero_texto(y_int)
 
                     fig.add_trace(go.Scatter(
                         x=[x_int], y=[y_int],
                         mode='markers+text',
-                        marker=dict(size=16, color='white', symbol='star',
+                        marker=dict(size=18, color='white', symbol='star',
                                    line=dict(width=2, color='#333')),
                         text=[f'P'],
                         textposition='top center',
                         textfont=dict(size=12, color='#333', family='Arial Black'),
-                        hovertemplate=f"Interseção f<sub>{i+1}</sub> ∩ f<sub>{j+1}</sub><br>({x_int:.3f}, {y_int:.3f})<extra></extra>",
+                        hovertemplate=f"Interseção f<sub>{i+1}</sub> ∩ f<sub>{j+1}</sub><br>({x_int_frac}, {y_int_frac})<extra></extra>",
                         showlegend=False
                     ))
 
@@ -250,14 +278,25 @@ st.plotly_chart(fig, use_container_width=True)
 # SEÇÃO: INFORMAÇÕES DAS FUNÇÕES
 # ============================================
 st.markdown("---")
-st.header("📋 Análise das Funções")
+st.header("📋 Análise das Funções — Interceptos em Fração")
 
 cols = st.columns(min(4, len(funcoes)))
 for i, f in enumerate(funcoes):
     with cols[i]:
         a, b, cor = f["a"], f["b"], f["cor"]
-        raiz = -b/a if a != 0 else "∄ (reta horizontal)"
-        raiz_str = f"{raiz:.3f}" if isinstance(raiz, float) else raiz
+
+        # Calcular raiz
+        if a != 0:
+            raiz_val = -b / a
+            raiz_html = formatar_numero(raiz_val)
+            raiz_texto = formatar_numero_texto(raiz_val)
+        else:
+            raiz_html = "∄ (reta horizontal)"
+            raiz_texto = "não existe"
+
+        # Intercepto y
+        b_html = formatar_numero(b)
+        b_texto = formatar_numero_texto(b)
 
         st.markdown(f"""
         <div class="func-card" style="border-left-color: {cor};">
@@ -267,11 +306,13 @@ for i, f in enumerate(funcoes):
             <div class="formula-box" style="font-size:1rem;">
                 f<sub>{i+1}</sub>(x) = {a:.1f}x + {b:.1f}
             </div>
-            <div style="font-size:0.95rem;color:#555;line-height:1.8;margin-top:0.5rem;">
+            <div style="font-size:0.95rem;color:#555;line-height:1.9;margin-top:0.6rem;">
                 <b>Coeficiente angular (a):</b> <span style="color:{cor};font-weight:700;">{a:.1f}</span><br>
-                <b>Coeficiente linear (b):</b> {b:.1f}<br>
-                <b>Raiz (zero):</b> x = {raiz_str}<br>
-                <b>Intercepto y:</b> (0, {b:.1f})<br>
+                <b>Coeficiente linear (b):</b> {b_html}<br>
+                <hr style="border:none;border-top:1px solid #ddd;margin:8px 0;">
+                <b>📍 Intercepto y:</b> (0, {b_html})<br>
+                <b>🔴 Raiz (zero):</b> x = {raiz_html}<br>
+                <hr style="border:none;border-top:1px solid #ddd;margin:8px 0;">
                 <b>Crescimento:</b> {"↗ Crescente" if a > 0 else "↘ Decrescente" if a < 0 else "→ Constante"}<br>
                 <b>Inclinação:</b> {"|a| > 1: íngreme" if abs(a) > 1 else "|a| < 1: suave" if abs(a) < 1 and a != 0 else "a = 0: horizontal"}
             </div>
@@ -284,14 +325,13 @@ for i, f in enumerate(funcoes):
 st.markdown("---")
 st.header("📊 Tabela de Valores")
 
-# Pontos de x para a tabela
 n_pontos = st.slider("Quantidade de pontos na tabela", 3, 15, 7)
 x_tab = np.linspace(x_min, x_max, n_pontos)
 
-tabela = {"x": [f"{xi:.2f}" for xi in x_tab]}
+tabela = {"x": [formatar_numero_texto(xi) for xi in x_tab]}
 for i, f in enumerate(funcoes):
     a, b = f["a"], f["b"]
-    tabela[f"f_{i+1}(x)"] = [f"{a*xi + b:.2f}" for xi in x_tab]
+    tabela[f"f_{i+1}(x)"] = [formatar_numero_texto(a*xi + b) for xi in x_tab]
 
 st.dataframe(tabela, use_container_width=True, hide_index=True)
 
@@ -303,11 +343,19 @@ if len(funcoes) >= 2 and len(intersecoes) > 0:
     st.header("🔵 Pontos de Interseção")
 
     for inter in intersecoes:
+        x_int_html = formatar_numero(inter["x"])
+        y_int_html = formatar_numero(inter["y"])
+        x_int_txt = formatar_numero_texto(inter["x"])
+        y_int_txt = formatar_numero_texto(inter["y"])
+
         st.markdown(f"""
-        <div class="info-box" style="border-left: 4px solid #9b59b6;">
+        <div style="background:#f3e5f5;border-radius:10px;padding:1rem;margin:0.4rem 0;border-left:4px solid #9b59b6;">
             <b>f<sub>{inter['f1']}</sub> ∩ f<sub>{inter['f2']}</sub>:</b> 
-            P = <b>({inter['x']:.3f}, {inter['y']:.3f})</b><br>
-            <span style="font-size:0.9rem;color:#777;">Resolvendo {funcoes[inter['f1']-1]['a']:.1f}x + {funcoes[inter['f1']-1]['b']:.1f} = {funcoes[inter['f2']-1]['a']:.1f}x + {funcoes[inter['f2']-1]['b']:.1f}</span>
+            P = <b>({x_int_html}, {y_int_html})</b><br>
+            <span style="font-size:0.9rem;color:#777;">
+                Resolvendo {funcoes[inter['f1']-1]['a']:.1f}x + {funcoes[inter['f2']-1]['b']:.1f} = {funcoes[inter['f2']-1]['a']:.1f}x + {funcoes[inter['f2']-1]['b']:.1f}
+                → x = {x_int_txt}, y = {y_int_txt}
+            </span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -321,31 +369,32 @@ for i, f in enumerate(funcoes):
     a, b, cor = f["a"], f["b"], f["cor"]
 
     if a == 0:
-        # Função constante
         sinal = "positivo" if b > 0 else "negativo" if b < 0 else "nulo"
         st.markdown(f"""
         <div style="background:{cor}11;border-radius:10px;padding:0.8rem 1rem;margin:0.4rem 0;border-left:4px solid {cor};">
-            <b>f<sub>{i+1}</sub>(x) = {b:.1f}</b> (função constante): sempre <b>{sinal}</b> para todo x ∈ ℝ
+            <b>f<sub>{i+1}</sub>(x) = {b_html}</b> (função constante): sempre <b>{sinal}</b> para todo x ∈ ℝ
         </div>
         """, unsafe_allow_html=True)
     else:
-        raiz = -b / a
+        raiz_val = -b / a
+        raiz_html = formatar_numero(raiz_val)
+
         if a > 0:
             st.markdown(f"""
             <div style="background:{cor}11;border-radius:10px;padding:0.8rem 1rem;margin:0.4rem 0;border-left:4px solid {cor};">
                 <b>f<sub>{i+1}</sub>(x) = {a:.1f}x + {b:.1f}</b> (crescente):<br>
-                f<sub>{i+1}</sub>(x) < 0  →  x < {raiz:.3f}<br>
-                f<sub>{i+1}</sub>(x) = 0  →  x = {raiz:.3f}<br>
-                f<sub>{i+1}</sub>(x) > 0  →  x > {raiz:.3f}
+                f<sub>{i+1}</sub>(x) < 0  →  x < {raiz_html}<br>
+                f<sub>{i+1}</sub>(x) = 0  →  x = {raiz_html}<br>
+                f<sub>{i+1}</sub>(x) > 0  →  x > {raiz_html}
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
             <div style="background:{cor}11;border-radius:10px;padding:0.8rem 1rem;margin:0.4rem 0;border-left:4px solid {cor};">
                 <b>f<sub>{i+1}</sub>(x) = {a:.1f}x + {b:.1f}</b> (decrescente):<br>
-                f<sub>{i+1}</sub>(x) < 0  →  x > {raiz:.3f}<br>
-                f<sub>{i+1}</sub>(x) = 0  →  x = {raiz:.3f}<br>
-                f<sub>{i+1}</sub>(x) > 0  →  x < {raiz:.3f}
+                f<sub>{i+1}</sub>(x) < 0  →  x > {raiz_html}<br>
+                f<sub>{i+1}</sub>(x) = 0  →  x = {raiz_html}<br>
+                f<sub>{i+1}</sub>(x) > 0  →  x < {raiz_html}
             </div>
             """, unsafe_allow_html=True)
 
@@ -400,9 +449,12 @@ with col_t2:
 st.markdown("---")
 st.header("📝 Exercício Resolvido com os Valores Atuais")
 
-# Pega a primeira função para o exercício
 f_ex = funcoes[0]
 a_ex, b_ex = f_ex["a"], f_ex["b"]
+raiz_ex = -b_ex / a_ex if a_ex != 0 else None
+raiz_ex_html = formatar_numero(raiz_ex) if raiz_ex is not None else "∄"
+raiz_ex_txt = formatar_numero_texto(raiz_ex) if raiz_ex is not None else "não existe"
+b_ex_html = formatar_numero(b_ex)
 
 st.markdown(f"""
 <div style="background:#fff8e1;border-radius:12px;padding:1.5rem;border:2px solid #ffc107;">
@@ -420,8 +472,8 @@ st.markdown(f"""
         ✏️ Resolução
     </div>
     <div style="font-size:0.95rem;color:#333;line-height:1.8;font-family:'Georgia',serif;">
-        <b>a)</b> f(2) = {a_ex:.1f} · 2 + {b_ex:.1f} = {a_ex*2:.1f} + {b_ex:.1f} = <b>{a_ex*2 + b_ex:.1f}</b><br><br>
-        <b>b)</b> f(x) = 0 → {a_ex:.1f}x + {b_ex:.1f} = 0 → {a_ex:.1f}x = {-b_ex:.1f} → x = <b>{-b_ex/a_ex:.3f}</b><br><br>
+        <b>a)</b> f(2) = {a_ex:.1f} · 2 + {b_ex:.1f} = {a_ex*2:.1f} + {b_ex:.1f} = <b>{formatar_numero_texto(a_ex*2 + b_ex)}</b><br><br>
+        <b>b)</b> f(x) = 0 → {a_ex:.1f}x + {b_ex:.1f} = 0 → {a_ex:.1f}x = {-b_ex:.1f} → x = <b>{raiz_ex_html}</b><br><br>
         <b>c)</b> Como a = {a_ex:.1f} {" > 0, a função é <b>crescente</b>" if a_ex > 0 else " < 0, a função é <b>decrescente</b>" if a_ex < 0 else " = 0, a função é <b>constante</b>"}.
     </div>
 </div>
