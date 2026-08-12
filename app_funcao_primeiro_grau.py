@@ -139,11 +139,11 @@ fig = go.Figure()
 
 # Eixos coordenados
 if mostrar_eixos:
-    fig.add_hline(y=0, line=dict(color='#333', width=1.5), hoverinfo='skip')
-    fig.add_vline(x=0, line=dict(color='#333', width=1.5), hoverinfo='skip')
+    fig.add_hline(y=0, line=dict(color='#333', width=1.5))
+    fig.add_vline(x=0, line=dict(color='#333', width=1.5))
 else:
-    fig.add_hline(y=0, line=dict(color='gray', width=0.8), hoverinfo='skip')
-    fig.add_vline(x=0, line=dict(color='gray', width=0.8), hoverinfo='skip')
+    fig.add_hline(y=0, line=dict(color='gray', width=0.8))
+    fig.add_vline(x=0, line=dict(color='gray', width=0.8))
 
 # Plotar cada função
 raizes = []
